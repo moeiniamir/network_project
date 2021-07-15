@@ -3,5 +3,5 @@ Codes for Computer Networks course project at Sharif University of Technology, S
 
 ## Contributors:
   - Amir Moeini
-  - Sadra Heydari
+  - Mohammad Sadra Heydari
   - Alireza Tajmir
