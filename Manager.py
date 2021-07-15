@@ -14,12 +14,12 @@ def handle(client_sock):
         except:
             log.error("no data from new node")
         m = re.match(r"(\d+) REQUESTS FOR CONNECTING TO NETWORK ON PORT (\d+)", msg)
-        id = int(m.group(1))
-        port = int(m.group(2))
+        id, port = int(m.group(1)), int(m.group(2))
         parent_indx = len(nodes_list) // 2
         nodes_list.append((id, port))
         parent_id, parent_port = nodes_list[parent_indx] if parent_indx > 0 else -1, -1
-        send_message(client_sock, f'CONNECT TO {parent_id} WITH PORT {parent_port}')
+        msg = f'CONNECT TO {parent_id} WITH PORT {parent_port}'
+        send_message(client_sock, dumps(msg))
         client_sock.close()
 
 

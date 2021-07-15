@@ -16,7 +16,7 @@ class Packet:
         self.type: PacketType = None
         self.src_id: int = None
         self.dest_id: int = None
-        self.data: str = None
+        self.data = None
 
     def set_type(self, type: PacketType):
         self.type = type
@@ -30,6 +30,6 @@ class Packet:
         self.dest_id = id
         return self
 
-    def set_data(self, data: str):
+    def set_data(self, data):
         self.data = data
         return self
