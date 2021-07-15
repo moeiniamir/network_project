@@ -1,0 +1,37 @@
+import socket
+from pickle import loads, dumps
+import threading
+from SP import *
+from Constants import *
+from Utils import log
+import re
+
+
+def handle(client_sock):
+    while True:
+        try:
+            msg = loads(recv_message(client_sock))
+        except:
+            log.error("no data from new node")
+        m = re.match(r"(\d+) REQUESTS FOR CONNECTING TO NETWORK ON PORT (\d+)", msg)
+        id = int(m.group(1))
+        port = int(m.group(2))
+        parent_indx = len(nodes_list) // 2
+        nodes_list.append((id, port))
+        parent_id, parent_port = nodes_list[parent_indx] if parent_indx > 0 else -1, -1
+        send_message(client_sock, f'CONNECT TO {parent_id} WITH PORT {parent_port}')
+        client_sock.close()
+
+
+nodes_list = []
+host = HOST
+port = MANAGER_PORT
+
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind((host, port))
+server.listen()
+
+while True:
+    client_sock, address = server.accept()
+    thread = threading.Thread(target=handle, args=(client_sock,))
+    thread.start()
