@@ -6,16 +6,14 @@ from Chat import Chat
 from ClientView import ClientView
 from SP import *
 from Constants import *
-from Utils import log
+from Utils import *
 import re
 from random import randint
 from Packet import *
+from Firewall import *
 
 
-# todo firewall
 # todo known ids
-# todo handle
-# todo interface
 class OTP:
     def __init__(self):
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -30,8 +28,10 @@ class OTP:
 
         self.parent_port = None
         self.parent_id = None
-        self.children: list[tuple[int, list[int]]] = []
+        self.children: list[tuple[int, list[int]]] = []  # list[port, list[id]]
         self.known_ids = set()
+
+        self.firewall_rules: list[TFirewallRule] = []
 
     def _receive(self, sock):
         msg = loads(recv_message(sock))
@@ -48,36 +48,101 @@ class OTP:
         if return_ans:
             return msg
 
+    def _firewall_check(self, packet: Packet):
+        for rule in self.firewall_rules[::-1]:
+            result = rule.does_pass(packet)
+            if result == FirewallResult.Accepted:
+                return True
+            elif result == FirewallResult.Dropped:
+                return False
+        return True
+
     def _send_packet(self, packet: Packet):
-        for child_port, subtree in self.children:
-            if packet.dest_id in subtree or packet.dest_id == -1:
+        if not self._firewall_check(packet):
+            return
+
+        if packet.dest_id == -1:
+            for child_port, _ in self.children:
                 self._send(packet, child_port)
-        else:
-            if self.parent_port == -1:
-                not_found_packet = Packet() \
-                    .set_type(PacketType.DestinationNotFoundMessage) \
-                    .set_src_id(self.id).set_dest_id(packet.src_id) \
-                    .set_data(f"DESTINATION {packet.dest_id} NOT FOUND")
-                self._send_packet(not_found_packet)
-            else:
+            if self.parent_id != -1:
                 self._send(packet, self.parent_port)
+        else:
+            for child_port, subtree in self.children:
+                if packet.dest_id in subtree:
+                    self._send(packet, child_port)
+                    break
+            else:
+                if self.parent_id == -1:
+                    not_found_packet = Packet() \
+                        .set_type(PacketType.DestinationNotFoundMessage) \
+                        .set_src_id(self.id).set_dest_id(packet.src_id) \
+                        .set_data(packet.dest_id)
+                    # .set_data(f"DESTINATION {packet.dest_id} NOT FOUND")
+                    self._send_packet(not_found_packet)
+                else:
+                    self._send(packet, self.parent_port)
 
     def _handle_incoming_packet(self, client_sock, address):
         packet = self._receive(client_sock)
-        self.known_ids.add(packet.src_id)
+        if packet.dest_id == -1:
+            self._send_packet(packet)
+            packet.set_dest_id(self.id)
 
         if packet.type == PacketType.Message:
-            self.chat.msg_delivery(packet.src_id, packet.data)
+            if packet.dest_id == self.id:
+                self.chat.msg_delivery(packet.src_id, packet.data)
+            else:
+                self._send_packet(packet)
         elif packet.type == PacketType.RoutingRequest:
-            pass
+            if packet.dest_id == self.id:
+                rr_packet = Packet().set_type(PacketType.RoutingResponse) \
+                    .set_src_id(self.id).set_dest_id(packet.src_id) \
+                    .set_data(f"{self.id}")
+                self._send_packet(rr_packet)
+            else:
+                self._send_packet(packet)
+        elif packet.type == PacketType.RoutingResponse:
+            if address[1] == self.parent_port:
+                packet.data = f"{self.id}<-" + packet.data
+            else:
+                packet.data = f"{self.id}->" + packet.data
+
+            if packet.dest_id == self.id:
+                self.client_view.route_delivery(packet.data)
+            else:
+                self._send_packet(packet)
         elif packet.type == PacketType.ParentAdvertise:
-            pass
+            if packet.dest_id != self.id:
+                log.error('parent advertise is not mine')
+            new_id = packet.data
+            from_child_port = address[1]
+            for child_port, subtree in self.children:
+                if child_port == from_child_port:
+                    subtree.append(new_id)
+                    break
+            else:
+                log.error('pa: this is not my child')
+
+            if self.parent_id != -1:
+                new_packet = packet.set_src_id(self.id).set_dest_id(self.parent_id)
+                self._send_packet(new_packet)
+
         elif packet.type == PacketType.Advertise:
-            pass
+            if packet.dest_id == self.id:
+                new_id = packet.data
+                self.known_ids.add(new_id)
+            else:
+                self._send_packet(packet)
         elif packet.type == PacketType.DestinationNotFoundMessage:
-            pass
+            if packet.dest_id == self.id:
+                self.client_view.dest_not_found(packet.data)
+            else:
+                self._send_packet(packet)
         elif packet.type == PacketType.ConnectionRequest:
-            pass
+            if packet.dest_id == self.id:
+                child_port = packet.data
+                child_id = packet.src_id
+                self.children.append((child_port, [child_id]))
         else:
             log.error('packet type not recognized')
 
@@ -107,10 +172,21 @@ class OTP:
         threading.Thread(target=self._listen_incoming_tcp).start()
 
     def send_route_req(self, dest_id):
-        pass
+        rr_packet = Packet().set_type(PacketType.RoutingRequest) \
+            .set_src_id(self.id).set_dest_id(dest_id)
+        self._send_packet(rr_packet)
 
     def advertise_to(self, dest_id):
-        pass
+        a_packet = Packet().set_type(PacketType.Advertise) \
+            .set_src_id(self.id).set_dest_id(dest_id)
+        self._send_packet(a_packet)
 
     def send_msg(self, data: str, dest_id):
-        pass
+        msg_packet = Packet().set_type(PacketType.Message) \
+            .set_src_id(self.id).set_dest_id(dest_id) \
+            .set_data(data)
+        self._send_packet(msg_packet)
+
+    def add_filter(self, src_id: str, dest_id: str, type: PacketType, action: FirewallAction):
+        self.firewall_rules.append(TFirewallRule(src_id, dest_id, type, action))
+

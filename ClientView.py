@@ -14,7 +14,10 @@ class ClientView:
     def display_log(self):
         pass
 
-    def route_delivery(self):
+    def route_delivery(self, route: str):
+        pass
+
+    def dest_not_found(self, dest_id):
         pass
 
     #### called from Chat
