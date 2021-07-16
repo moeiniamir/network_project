@@ -9,10 +9,7 @@ import re
 
 def handle(client_sock):
     while True:
-        try:
-            msg = loads(recv_message(client_sock))
-        except:
-            log.error("no data from new node")
+        msg = loads(recv_message(client_sock))
         m = re.match(r"(\d+) REQUESTS FOR CONNECTING TO NETWORK ON PORT (\d+)", msg)
         id, port = int(m.group(1)), int(m.group(2))
         parent_indx = len(nodes_list) // 2
