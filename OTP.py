@@ -15,11 +15,11 @@ from Firewall import *
 
 # todo known ids
 class OTP:
-    def __init__(self):
+    def __init__(self, client_view):
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        self.client_view: ClientView = None
+        self.client_view: ClientView = client_view
         self.chat: Chat = None
 
         self.id = None
@@ -87,6 +87,8 @@ class OTP:
         if packet.dest_id == -1:
             self._send_packet(packet)
             packet.set_dest_id(self.id)
+        if packet.dest_id != self.id:
+            self.client_view.display_log(packet)
 
         if packet.type == PacketType.Message:
             if packet.dest_id == self.id:
