@@ -33,3 +33,7 @@ class Packet:
     def set_data(self, data):
         self.data = data
         return self
+
+    def __str__(self):
+        s = f"dest={self.dest_id} src={self.src_id} type={self.type.name} data=\n{self.data}"
+        return s

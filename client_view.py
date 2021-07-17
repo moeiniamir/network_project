@@ -74,22 +74,29 @@ class ClientView:
 
     #### called from OTP
     def display_log(self, packet: Packet):
-        s = f"{packet.type.name} Packet from {packet.src_id} to {packet.dest_id}"
-        safe_print(s)
+        if self.chat.chat_state == ChatState.NO_CHAT:
+            s = f"{packet.type.name} Packet from {packet.src_id} to {packet.dest_id}"
+            safe_print(s)
 
     def route_delivery(self, route: str):
-        safe_print(route)
+        if self.chat.chat_state == ChatState.NO_CHAT:
+            safe_print(route)
 
     def dest_not_found(self, dest_id):
-        s = f"DESTINATION {dest_id} NOT FOUND"
-        safe_print(s)
+        if self.chat.chat_state == ChatState.NO_CHAT:
+            s = f"DESTINATION {dest_id} NOT FOUND"
+            safe_print(s)
 
     #### called from Chat
-    def display_salam(self):
-        pass
+    def display_salam(self, is_ans):
+        if is_ans:
+            safe_print("Hezaro Sisad Ta Salam")
+        else:
+            safe_print("Salam Salam Sad Ta Salam")
 
-    def display_message(self, msg: str):
-        pass
+    def display_message(self, msg: str, chat_name: str):
+        s = f"{chat_name}: {msg}"
+        safe_print(s)
 
     def ask_join_name(self, host_chat_name, host_id):
         pass

@@ -14,9 +14,6 @@ from firewall import *
 
 class OTP:
     def __init__(self, client_view):
-        self.server_sock = None
-        self.client_sock = None
-
         self.client_view: ClientView = client_view
         self.chat: Chat = None
 
@@ -37,13 +34,13 @@ class OTP:
 
     def _send(self, data, dest_port, return_ans=False):
         # self.client_sock.bind((0, self.send_port))
-        self.client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_sock.connect((HOST, dest_port))
-        send_message(self.client_sock, dumps(data))
+        client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_sock.connect((HOST, dest_port))
+        send_message(client_sock, dumps(data))
         if return_ans:
-            msg = self._receive(self.client_sock)
+            msg = self._receive(client_sock)
 
-        self.client_sock.close()
+        client_sock.close()
         if return_ans:
             return msg
 
@@ -63,6 +60,10 @@ class OTP:
         # return True
 
     def _send_packet(self, packet: Packet):
+        if packet.dest_id == self.id:
+            log.error(f'intending to send message to self: {packet}')
+            return
+
         if not self._firewall_check(packet):
             return
 
@@ -94,7 +95,7 @@ class OTP:
                 else:
                     self._send(packet, self.parent_port)
 
-    def _handle_incoming_packet(self, client_sock, address):
+    def _handle_incoming_packet(self, client_sock):
         packet = self._receive(client_sock)
         if packet.dest_id == -1:
             self._send_packet(packet)
@@ -118,10 +119,15 @@ class OTP:
             else:
                 self._send_packet(packet)
         elif packet.type == PacketType.RoutingResponse:
-            if address[1] == self.parent_port:
-                packet.data = f"{self.id}<-" + packet.data
-            else:
+            from_children = False
+            for ch_port, ch_tree in self.children:
+                if packet.src_id in ch_tree:
+                    from_children = True
+                    break
+            if from_children:
                 packet.data = f"{self.id}->" + packet.data
+            else:
+                packet.data = f"{self.id}<-" + packet.data
 
             if packet.dest_id == self.id:
                 self.client_view.route_delivery(packet.data)
@@ -131,9 +137,9 @@ class OTP:
             if packet.dest_id != self.id:
                 log.error('parent advertise is not mine')
             new_id = packet.data
-            from_child_port = address[1]
+            self.known_ids.add(new_id)
             for child_port, subtree in self.children:
-                if child_port == from_child_port:
+                if packet.src_id in subtree:
                     subtree.append(new_id)
                     break
             else:
@@ -144,10 +150,7 @@ class OTP:
                 self._send_packet(new_packet)
 
         elif packet.type == PacketType.Advertise:
-            if packet.dest_id == self.id:
-                new_id = packet.data
-                self.known_ids.add(new_id)
-            else:
+            if packet.dest_id != self.id:
                 self._send_packet(packet)
         elif packet.type == PacketType.DestinationNotFoundMessage:
             if packet.dest_id == self.id:
@@ -170,12 +173,12 @@ class OTP:
             log.error('packet type not recognized')
 
     def _listen_incoming_tcp(self):
-        self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_sock.bind((HOST, self.rcv_port))
-        self.server_sock.listen()
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_sock.bind((HOST, self.rcv_port))
+        server_sock.listen()
         while True:
-            client_sock, address = self.server_sock.accept()
-            threading.Thread(target=self._handle_incoming_packet, args=(client_sock, address)).start()
+            client_sock, address = server_sock.accept()
+            threading.Thread(target=self._handle_incoming_packet, args=(client_sock, )).start()
 
     def connect_to_network(self, id, rcv_port):
         self.id = id
