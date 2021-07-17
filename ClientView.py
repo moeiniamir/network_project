@@ -2,6 +2,7 @@ from Chat import Chat, ChatState
 from OTP import OTP
 from Packet import PacketType, Packet
 import re
+from Utils import safe_print
 
 
 class ClientView:
@@ -40,17 +41,35 @@ class ClientView:
             elif self.chat.chat_state == ChatState.INVITATION_PENDING:
                 pass
             else:
-                pass
+                m = re.fullmatch(patt0, inp)
+                if m:
+                    id = int(m.group(1))
+                    port = int(m.group(2))
+                    self.otp.connect_to_network(id, port)
+                    continue
+
+                m = re.fullmatch(patt1, inp)
+                if m:
+                    safe_print(self.otp.known_ids)
+                    continue
+
+                m = re.fullmatch(patt2, inp)
+                if m:
+                    dest_id = int(m.group(1))
+                    self.otp.send_route_req(dest_id)
+
 
     #### called from OTP
     def display_log(self, packet: Packet):
-        pass
+        s = f"{packet.type.name} Packet from {packet.src_id} to {packet.dest_id}"
+        safe_print(s)
 
     def route_delivery(self, route: str):
-        pass
+        safe_print(route)
 
     def dest_not_found(self, dest_id):
-        pass
+        s = f"DESTINATION {dest_id} NOT FOUND"
+        safe_print(s)
 
     #### called from Chat
     def display_salam(self):
@@ -70,3 +89,7 @@ class ClientView:
 
     def blocked_by_firewall(self):
         pass
+
+
+client = ClientView()
+client.parse_user_input()
