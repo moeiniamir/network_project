@@ -8,12 +8,10 @@ from SP import *
 from Constants import *
 from Utils import *
 import re
-from random import randint
 from Packet import *
 from Firewall import *
 
 
-# todo known ids
 class OTP:
     def __init__(self, client_view):
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -57,8 +55,17 @@ class OTP:
                 return False
         return True
 
+    def _known_check(self, packet: Packet):
+        return True
+        # if packet.src_id == self.id and packet.dest_id != -1 and packet.dest_id not in self.known_ids:
+        #     return False
+        # return True
+
     def _send_packet(self, packet: Packet):
         if not self._firewall_check(packet):
+            return
+
+        if not self._known_check(packet):
             return
 
         if packet.dest_id == -1:
@@ -89,6 +96,8 @@ class OTP:
             packet.set_dest_id(self.id)
         if packet.dest_id != self.id:
             self.client_view.display_log(packet)
+        if packet.dest_id == self.id:
+            self.known_ids.add(packet.src_id)
 
         if packet.type == PacketType.Message:
             if packet.dest_id == self.id:
@@ -145,6 +154,12 @@ class OTP:
                 child_port = packet.data
                 child_id = packet.src_id
                 self.children.append((child_port, [child_id]))
+                pa_packet = Packet().set_type(PacketType.ParentAdvertise) \
+                    .set_src_id(self.id).set_dest_id(self.parent_id) \
+                    .set_data(child_id)
+                self._send_packet(pa_packet)
+            else:
+                log.warning('connection request dest not my id')
         else:
             log.error('packet type not recognized')
 
@@ -162,6 +177,7 @@ class OTP:
         msg = self._send(msg, MANAGER_PORT, True)
         m = re.match(r'CONNECT TO (\d+) WITH PORT (\d+)', msg)
         self.parent_id, self.parent_port = int(m.group(1)), int(m.group(2))
+        self.known_ids.add(self.parent_id)
 
         conn_req_packet = Packet().set_type(PacketType.ConnectionRequest) \
             .set_src_id(self.id).set_dest_id(self.parent_id) \
@@ -191,4 +207,3 @@ class OTP:
 
     def add_filter(self, src_id: str, dest_id: str, type: PacketType, action: FirewallAction):
         self.firewall_rules.append(TFirewallRule(src_id, dest_id, type, action))
-

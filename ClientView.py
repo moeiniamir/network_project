@@ -67,3 +67,6 @@ class ClientView:
 
     def so_left(self, chat_name, id):
         pass
+
+    def blocked_by_firewall(self):
+        pass

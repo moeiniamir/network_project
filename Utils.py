@@ -1,5 +1,6 @@
-from logging import getLogger
+import logging as log
 from threading import Lock
+from Constants import *
 
 print_lock = Lock()
 
@@ -10,4 +11,4 @@ def safe_print(*args, **kwargs):
     print_lock.release()
 
 
-log = getLogger('global_logger')
+log.basicConfig(level=LOGGING_LEVEL)

@@ -5,13 +5,13 @@ import re
 from Utils import log
 from random import randint
 from Constants import *
+from Firewall import FirewallAction
 
 
 class ChatState(Enum):
     IN_CHAT = 0
     NO_CHAT = 1
     INVITATION_PENDING = 2
-
 
 class Chat:
     def __init__(self, client_view):
@@ -22,6 +22,7 @@ class Chat:
         self.id_name: dict[int: str] = {}
         self.chat_name = None
         self.chat_id: int = None
+        self.firewall_mode = FirewallAction.Accept
 
     # called from OTP
     def msg_delivery(self, src_id: int, msg: str):
@@ -37,13 +38,13 @@ class Chat:
             return
 
         m = re.fullmatch(patt1, msg)
-        if m and self.chat_state == ChatState.NO_CHAT:
+        if m and self.chat_state == ChatState.NO_CHAT and self.firewall_mode == FirewallAction.Accept:
             self.chat_state = ChatState.INVITATION_PENDING
-            # add to known clients
             self.chat_id = int(m.group(1))
             host_chat_name = m.group(2)
             self.invited = list(map(int, m.group(3).split(',')))
             self.invited.remove(self.otp.id)
+            self.otp.known_ids.update(self.invited)
             host_id = self.invited[0]
             self.id_name[host_id] = host_chat_name
             self.client_view.ask_join_name(host_chat_name, host_id)
@@ -85,7 +86,11 @@ class Chat:
         self.otp.send_msg(msg, dest_id)
 
     def start_chat(self, chat_name, others: list[int]):
-        # remove unknown hosts
+        if self.firewall_mode == FirewallAction.Drop:
+            self.client_view.blocked_by_firewall()
+            return
+
+        # others = [id for id in others if id in self.otp.known_ids]
         self.chat_state = ChatState.IN_CHAT
         self.invited = others
         self.chat_name = chat_name
@@ -116,3 +121,6 @@ class Chat:
         msg = f"CHAT {self.chat_id}:\n{msg}"
         for id in self.invited:
             self.otp.send_msg(msg, id)
+
+    def set_firewall_mode(self, action: FirewallAction):
+        self.firewall_mode = action
