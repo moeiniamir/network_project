@@ -29,7 +29,7 @@ class ClientView:
 
 
         while True:
-            inp = input()
+            inp = input('>> ')
 
             if self.chat.chat_state == ChatState.IN_CHAT:
                 m = re.fullmatch(patt8, inp)
@@ -42,7 +42,7 @@ class ClientView:
             elif self.chat.chat_state == ChatState.INVITATION_PENDING:
                 m = re.fullmatch(patt6, inp)
                 if m:
-                    chat_name = input('Choose a name for yourself')
+                    chat_name = input('Choose a name for yourself: ')
                     self.chat.send_name(chat_name)
                     continue
 
@@ -130,10 +130,12 @@ class ClientView:
         safe_print(s)
 
     def so_joined(self, chat_name, id):
-        pass
+        s = f"{chat_name}({id}) ‫‪was‬‬ ‫‪joind‬‬ ‫‪to‬‬ ‫‪the‬‬ ‫‪chat.‬‬"
+        safe_print(s)
 
     def so_left(self, chat_name, id):
-        pass
+        s = f"{chat_name}({id}) ‫‪left‬‬ ‫‪the‬‬ ‫‪chat.‬‬"
+        safe_print(s)
 
     def blocked_by_firewall(self):
         pass
