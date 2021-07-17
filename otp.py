@@ -2,8 +2,8 @@ import socket
 from pickle import loads, dumps
 import threading
 
-from chat import Chat
-from client_view import ClientView
+# from chat import Chat
+# from client_view import ClientView
 from sp import *
 from constants import *
 from utils import *
@@ -14,8 +14,8 @@ from firewall import *
 
 class OTP:
     def __init__(self, client_view):
-        self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_sock = None
+        self.client_sock = None
 
         self.client_view: ClientView = client_view
         self.chat: Chat = None
@@ -37,6 +37,7 @@ class OTP:
 
     def _send(self, data, dest_port, return_ans=False):
         # self.client_sock.bind((0, self.send_port))
+        self.client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_sock.connect((HOST, dest_port))
         send_message(self.client_sock, dumps(data))
         if return_ans:
@@ -69,9 +70,13 @@ class OTP:
             return
 
         if packet.dest_id == -1:
-            for child_port, _ in self.children:
-                self._send(packet, child_port)
-            if self.parent_id != -1:
+            from_me_or_children = (packet.src_id == self.id)
+            for child_port, subtree in self.children:
+                if packet.src_id in subtree:
+                    from_me_or_children = True
+                else:
+                    self._send(packet, child_port)
+            if self.parent_id != -1 and from_me_or_children:
                 self._send(packet, self.parent_port)
         else:
             for child_port, subtree in self.children:
@@ -154,16 +159,20 @@ class OTP:
                 child_port = packet.data
                 child_id = packet.src_id
                 self.children.append((child_port, [child_id]))
-                pa_packet = Packet().set_type(PacketType.ParentAdvertise) \
-                    .set_src_id(self.id).set_dest_id(self.parent_id) \
-                    .set_data(child_id)
-                self._send_packet(pa_packet)
+                if self.parent_id != -1:
+                    pa_packet = Packet().set_type(PacketType.ParentAdvertise) \
+                        .set_src_id(self.id).set_dest_id(self.parent_id) \
+                        .set_data(child_id)
+                    self._send_packet(pa_packet)
             else:
                 log.warning('connection request dest not my id')
         else:
             log.error('packet type not recognized')
 
     def _listen_incoming_tcp(self):
+        self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_sock.bind((HOST, self.rcv_port))
+        self.server_sock.listen()
         while True:
             client_sock, address = self.server_sock.accept()
             threading.Thread(target=self._handle_incoming_packet, args=(client_sock, address)).start()
@@ -175,17 +184,15 @@ class OTP:
 
         msg = f"{self.id} REQUESTS FOR CONNECTING TO NETWORK ON PORT {self.rcv_port}"
         msg = self._send(msg, MANAGER_PORT, True)
-        m = re.match(r'CONNECT TO (\d+) WITH PORT (\d+)', msg)
+        m = re.match(r'CONNECT TO (-?\d+) WITH PORT (-?\d+)', msg)
         self.parent_id, self.parent_port = int(m.group(1)), int(m.group(2))
-        self.known_ids.add(self.parent_id)
+        if self.parent_id != -1:
+            self.known_ids.add(self.parent_id)
 
         conn_req_packet = Packet().set_type(PacketType.ConnectionRequest) \
             .set_src_id(self.id).set_dest_id(self.parent_id) \
             .set_data(self.rcv_port)
         self._send_packet(conn_req_packet)
-
-        self.server_sock.bind((HOST, self.rcv_port))
-        self.server_sock.listen()
 
         threading.Thread(target=self._listen_incoming_tcp).start()
 

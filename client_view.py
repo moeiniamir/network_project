@@ -15,9 +15,9 @@ class ClientView:
     def parse_user_input(self):
         patt0 = r"CONNECT AS (\d+) ON PORT (\d+)"
         patt1 = r"SHOW KNOWN CLIENTS"
-        patt2 = r"ROUTE (\d+)"
-        patt3 = r"Advertise (\d+)"
-        patt4 = r"Salam (\d+)"
+        patt2 = r"ROUTE (-?\d+)"
+        patt3 = r"Advertise (-?\d+)"
+        patt4 = r"Salam (-?\d+)"
         patt5 = r"START CHAT (\w+): ((?:\d+,?)+)"
         patt6 = r"Y"
         patt7 = r"N"
