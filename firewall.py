@@ -2,6 +2,12 @@ from enum import Enum
 from packet import Packet, PacketType
 
 
+class FirewallDirection(Enum):
+    INPUT = 0
+    OUTPUT = 1
+    FORWARD = 2
+
+
 class FirewallAction(Enum):
     Accept = 0
     Drop = 1

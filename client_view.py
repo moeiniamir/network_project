@@ -3,6 +3,8 @@ from otp import OTP
 from packet import PacketType, Packet
 import re
 from utils import safe_print
+from firewall import FirewallDirection, FirewallAction
+from utils import log
 
 
 class ClientView:
@@ -21,17 +23,16 @@ class ClientView:
         patt5 = r"START CHAT (\w+): ((?:\d+,?)+)"
         patt6 = r"Y"
         patt7 = r"N"
-        patt8 = r"(\w+)"
-        patt9 = r"EXIT CHAT"
-        patt10 = r"FILTER (\w+) (\d+) (\d+) (\d+) (\w+)"
-        patt11 = r"FW CHAT (\w+)"
+        patt8 = r"EXIT CHAT"
+        patt9 = r"FILTER (\w+) (\*|\d+) (\*|\d+) (\d+) (\w+)"
+        patt10 = r"FW CHAT (\w+)"
 
 
         while True:
             inp = input()
 
             if self.chat.chat_state == ChatState.IN_CHAT:
-                m = re.fullmatch(patt9, inp)
+                m = re.fullmatch(patt8, inp)
                 if m:
                     self.chat.exit_chat()
                     continue
@@ -39,7 +40,16 @@ class ClientView:
                 self.chat.send_message(inp)
 
             elif self.chat.chat_state == ChatState.INVITATION_PENDING:
-                pass
+                m = re.fullmatch(patt6, inp)
+                if m:
+                    chat_name = input('Choose a name for yourself')
+                    self.chat.send_name(chat_name)
+                    continue
+
+                m = re.fullmatch(patt7, inp)
+                if m:
+                    self.chat.refuse_chat()
+                    continue
             else:
                 m = re.fullmatch(patt0, inp)
                 if m:
@@ -71,6 +81,23 @@ class ClientView:
                     self.chat.send_salam(dest_id)
                     continue
 
+                m = re.fullmatch(patt5, inp)
+                if m:
+                    chat_name = m.group(1)
+                    id_list = list(map(int, m.group(2).split(',')))
+                    self.chat.start_chat(chat_name, id_list)
+                    continue
+
+                m = re.fullmatch(patt9, inp)
+                if m:
+                    dir = FirewallDirection[m.group(1)]
+                    src_id = m.group(2)
+                    dest_id = m.group(3)
+                    type = PacketType(int(m.group(4)))
+                    action = FirewallAction[m.group(5)]
+
+                log.warning(f'invalid input: {inp}')
+
 
     #### called from OTP
     def display_log(self, packet: Packet):
@@ -99,7 +126,8 @@ class ClientView:
         safe_print(s)
 
     def ask_join_name(self, host_chat_name, host_id):
-        pass
+        s = f"{host_chat_name} with id {host_id} has asked you to join a chat. Would you like to join?[Y/N]"
+        safe_print(s)
 
     def so_joined(self, chat_name, id):
         pass

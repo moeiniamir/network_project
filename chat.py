@@ -57,7 +57,7 @@ class Chat:
             id = int(m.group(2))
             chat_name = m.group(3)
             self.id_name[id] = chat_name
-            if chat_id == self.chat_id:
+            if chat_id == self.chat_id and self.chat_state == ChatState.IN_CHAT:
                 self.client_view.so_joined(chat_name, id)
             return
 
@@ -73,7 +73,7 @@ class Chat:
         m = re.fullmatch(patt4, msg)
         if m and self.chat_state == ChatState.IN_CHAT:
             chat_id = int(m.group(1))
-            chat_name = self.id_name[chat_id]
+            chat_name = self.id_name[src_id]
             msg = m.group(2)
             if self.chat_id == chat_id:
                 self.client_view.display_message(msg, chat_name)
@@ -106,15 +106,21 @@ class Chat:
         self.chat_id = randint(CHAT_ID_MIN, CHAT_ID_MAX)
 
         id_list_str = list(map(str, [self.otp.id] + others))
-        msg = f"CHAT {self.chat_id}:\nREQUEST FOR STARTING CHAT WITH {chat_name}: " + ','.join(id_list_str)
+        msg = f"CHAT {self.chat_id}:\nREQUESTS FOR STARTING CHAT WITH {chat_name}: " + ','.join(id_list_str)
         for id in others:
             self.otp.send_msg(msg, id)
 
     def send_name(self, chat_name):
+        self.chat_state = ChatState.IN_CHAT
         self.chat_name = chat_name
         msg = f"CHAT {self.chat_id}:\n{self.otp.id} :{chat_name}"
         for id in self.invited:
             self.otp.send_msg(msg, id)
+
+    def refuse_chat(self):
+        self.invited.clear()
+        self.chat_id = None
+        self.chat_state = ChatState.NO_CHAT
 
     def exit_chat(self):
         msg = f"CHAT {self.chat_id}:\nEXIT CHAT {self.otp.id}"
