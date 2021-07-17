@@ -1,5 +1,5 @@
 from enum import Enum
-from Packet import Packet, PacketType
+from packet import Packet, PacketType
 
 
 class FirewallAction(Enum):

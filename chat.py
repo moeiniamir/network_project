@@ -1,11 +1,11 @@
-from ClientView import ClientView
-from OTP import OTP
+from client_view import ClientView
+from otp import OTP
 from enum import Enum
 import re
-from Utils import log
+from utils import log
 from random import randint
-from Constants import *
-from Firewall import FirewallAction
+from constants import *
+from firewall import FirewallAction
 
 
 class ChatState(Enum):

@@ -1,9 +1,9 @@
 import socket
 from pickle import loads, dumps
 import threading
-from SP import *
-from Constants import *
-from Utils import log
+from sp import *
+from constants import *
+from utils import log
 import re
 
 

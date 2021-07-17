@@ -2,14 +2,14 @@ import socket
 from pickle import loads, dumps
 import threading
 
-from Chat import Chat
-from ClientView import ClientView
-from SP import *
-from Constants import *
-from Utils import *
+from chat import Chat
+from client_view import ClientView
+from sp import *
+from constants import *
+from utils import *
 import re
-from Packet import *
-from Firewall import *
+from packet import *
+from firewall import *
 
 
 class OTP:

@@ -1,8 +1,8 @@
-from Chat import Chat, ChatState
-from OTP import OTP
-from Packet import PacketType, Packet
+from chat import Chat, ChatState
+from otp import OTP
+from packet import PacketType, Packet
 import re
-from Utils import safe_print
+from utils import safe_print
 
 
 class ClientView:

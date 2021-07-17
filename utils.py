@@ -1,6 +1,6 @@
 import logging as log
 from threading import Lock
-from Constants import *
+from constants import *
 
 print_lock = Lock()
 
