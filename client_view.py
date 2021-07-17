@@ -57,6 +57,19 @@ class ClientView:
                 if m:
                     dest_id = int(m.group(1))
                     self.otp.send_route_req(dest_id)
+                    continue
+
+                m = re.fullmatch(patt3, inp)
+                if m:
+                    dest_id = int(m.group(1))
+                    self.otp.advertise_to(dest_id)
+                    continue
+
+                m = re.fullmatch(patt4, inp)
+                if m:
+                    dest_id = int(m.group(1))
+                    self.chat.send_salam(dest_id)
+                    continue
 
 
     #### called from OTP
