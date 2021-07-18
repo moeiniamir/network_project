@@ -1,3 +1,5 @@
+import pickle
+
 from chat import Chat, ChatState
 from otp import OTP
 from packet import PacketType, Packet
@@ -94,7 +96,15 @@ class ClientView:
                     src_id = m.group(2)
                     dest_id = m.group(3)
                     type = PacketType(int(m.group(4)))
-                    action = FirewallAction[m.group(5)]
+                    action = FirewallAction[m.group(5).capitalize()]
+                    self.otp.add_filter(src_id, dest_id, type, action, dir)
+                    continue
+
+                m = re.fullmatch(patt10, inp)
+                if m:
+                    action = FirewallAction[m.group(1).capitalize()]
+                    self.chat.set_firewall_mode(action)
+                    continue
 
                 log.warning(f'invalid input: {inp}')
 
@@ -130,16 +140,32 @@ class ClientView:
         safe_print(s)
 
     def so_joined(self, chat_name, id):
-        s = f"{chat_name}({id}) ‫‪was‬‬ ‫‪joind‬‬ ‫‪to‬‬ ‫‪the‬‬ ‫‪chat.‬‬"
+        s = f"{chat_name}({id}) was  joind to the chat."
         safe_print(s)
 
     def so_left(self, chat_name, id):
-        s = f"{chat_name}({id}) ‫‪left‬‬ ‫‪the‬‬ ‫‪chat.‬‬"
+        s = f"{chat_name}({id}) left the chat."
         safe_print(s)
 
     def blocked_by_firewall(self):
-        pass
+        s = "Chat is disabled. Make sure the firewall allows you to chat."
+        safe_print(s)
 
 
 client = ClientView()
+
+try:
+    f = open('temp','rb')
+    id = pickle.load(f)
+    f.close()
+    client.otp.connect_to_network(id,3000+id)
+    f = open('temp', 'wb')
+    pickle.dump(id+1, f)
+    f.close()
+except:
+    f = open('temp','wb')
+    client.otp.connect_to_network(1, 3001)
+    pickle.dump(2,f)
+    f.close()
+
 client.parse_user_input()

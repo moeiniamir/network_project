@@ -30,25 +30,27 @@ class Chat:
         patt1 = r"CHAT (\d+):\nREQUESTS FOR STARTING CHAT WITH (\w+): ((?:\d+,?)+)"
         patt2 = r"CHAT (\d+):\n(\d+) :(\w+)"
         patt3 = r"CHAT (\d+):\nEXIT CHAT (\d+)"
-        patt4 = r"CHAT (\d+):\n(\w+)"
+        patt4 = r"CHAT (\d+):\n(.*)"
         patt5 = r"Salam Salam Sad Ta Salam"
 
         m = re.fullmatch(patt0, msg)
-        if m and self.chat_state == ChatState.NO_CHAT:
-            self.client_view.display_salam(True)
+        if m:
+            if self.chat_state == ChatState.NO_CHAT:
+                self.client_view.display_salam(True)
             return
 
         m = re.fullmatch(patt1, msg)
-        if m and self.chat_state == ChatState.NO_CHAT and self.firewall_mode == FirewallAction.Accept:
-            self.chat_state = ChatState.INVITATION_PENDING
-            self.chat_id = int(m.group(1))
-            host_chat_name = m.group(2)
-            self.invited = list(map(int, m.group(3).split(',')))
-            self.invited.remove(self.otp.id)
-            self.otp.known_ids.update(self.invited)
-            host_id = self.invited[0]
-            self.id_name[host_id] = host_chat_name
-            self.client_view.ask_join_name(host_chat_name, host_id)
+        if m:
+            if self.chat_state == ChatState.NO_CHAT and self.firewall_mode == FirewallAction.Accept:
+                self.chat_state = ChatState.INVITATION_PENDING
+                self.chat_id = int(m.group(1))
+                host_chat_name = m.group(2)
+                self.invited = list(map(int, m.group(3).split(',')))
+                self.invited.remove(self.otp.id)
+                self.otp.known_ids.update(self.invited)
+                host_id = self.invited[0]
+                self.id_name[host_id] = host_chat_name
+                self.client_view.ask_join_name(host_chat_name, host_id)
             return
 
         m = re.fullmatch(patt2, msg)
@@ -62,28 +64,31 @@ class Chat:
             return
 
         m = re.fullmatch(patt3, msg)
-        if m and self.chat_state == ChatState.IN_CHAT:
-            chat_id = int(m.group(1))
-            id = m.group(2)
-            chat_name = self.id_name.pop(id)
-            if self.chat_id == chat_id:
-                self.client_view.so_left(chat_name, id)
+        if m:
+            if self.chat_state == ChatState.IN_CHAT:
+                chat_id = int(m.group(1))
+                if self.chat_id == chat_id:
+                    id = int(m.group(2))
+                    chat_name = self.id_name.pop(id)
+                    self.client_view.so_left(chat_name, id)
             return
 
         m = re.fullmatch(patt4, msg)
-        if m and self.chat_state == ChatState.IN_CHAT:
-            chat_id = int(m.group(1))
-            chat_name = self.id_name[src_id]
-            msg = m.group(2)
-            if self.chat_id == chat_id:
-                self.client_view.display_message(msg, chat_name)
+        if m:
+            if self.chat_state == ChatState.IN_CHAT:
+                chat_id = int(m.group(1))
+                if self.chat_id == chat_id:
+                    msg = m.group(2)
+                    chat_name = self.id_name[src_id]
+                    self.client_view.display_message(msg, chat_name)
             return
 
         m = re.fullmatch(patt5, msg)
-        if m and self.chat_state == ChatState.NO_CHAT:
-            self.client_view.display_salam(False)
+        if m:
             msg = f"Hezaro Sisad Ta Salam"
             self.otp.send_msg(msg, src_id)
+            if self.chat_state == ChatState.NO_CHAT:
+                self.client_view.display_salam(False)
             return
 
         log.warning(f'unknown message packet arrived: {msg}')
@@ -99,7 +104,11 @@ class Chat:
             self.client_view.blocked_by_firewall()
             return
 
-        # others = [id for id in others if id in self.otp.known_ids]
+        for id in others:
+            if id not in self.otp.known_ids:
+                log.warning(f"{id} is unknown. omitted from chat.")
+        others = [id for id in others if id in self.otp.known_ids]
+
         self.chat_state = ChatState.IN_CHAT
         self.invited = others
         self.chat_name = chat_name

@@ -23,7 +23,7 @@ class OTP:
 
         self.parent_port = None
         self.parent_id = None
-        self.children: list[tuple[int, list[int]]] = []  # list[port, list[id]]
+        self.children: list[tuple[int, list[int]]] = []  # list[(port, list[id])]
         self.known_ids = set()
 
         self.firewall_rules: list[TFirewallRule] = []
@@ -54,10 +54,11 @@ class OTP:
         return True
 
     def _known_check(self, packet: Packet):
-        return True
-        # if packet.src_id == self.id and packet.dest_id != -1 and packet.dest_id not in self.known_ids:
-        #     return False
         # return True
+        if packet.src_id == self.id and packet.dest_id != -1 and packet.dest_id not in self.known_ids:
+            log.error(f'target unknown. not sending packet: {packet}')
+            return False
+        return True
 
     def _send_packet(self, packet: Packet):
         if packet.dest_id == self.id:
@@ -215,5 +216,5 @@ class OTP:
             .set_data(data)
         self._send_packet(msg_packet)
 
-    def add_filter(self, src_id: str, dest_id: str, type: PacketType, action: FirewallAction):
-        self.firewall_rules.append(TFirewallRule(src_id, dest_id, type, action))
+    def add_filter(self, src_id: str, dest_id: str, type: PacketType, action: FirewallAction, dir: FirewallDirection):
+        self.firewall_rules.append(TFirewallRule(src_id, dest_id, type, action, dir))
