@@ -56,7 +56,7 @@ class OTP:
     def _known_check(self, packet: Packet):
         # return True
         if packet.src_id == self.id and packet.dest_id != -1 and packet.dest_id not in self.known_ids:
-            log.error(f'target unknown. not sending packet: {packet}')
+            self.client_view.unknown_id(packet.dest_id)
             return False
         return True
 

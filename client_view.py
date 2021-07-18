@@ -106,7 +106,7 @@ class ClientView:
                     self.chat.set_firewall_mode(action)
                     continue
 
-                log.warning(f'invalid input: {inp}')
+            log.warning(f'invalid input: {inp}')
 
 
     #### called from OTP
@@ -122,6 +122,11 @@ class ClientView:
     def dest_not_found(self, dest_id):
         if self.chat.chat_state == ChatState.NO_CHAT:
             s = f"DESTINATION {dest_id} NOT FOUND"
+            safe_print(s)
+
+    def unknown_id(self, dest_id):
+        if self.chat.chat_state == ChatState.NO_CHAT:
+            s = f"Unknown destination {dest_id}"
             safe_print(s)
 
     #### called from Chat
