@@ -2,24 +2,19 @@ import socket
 from pickle import loads, dumps
 import threading
 
-# from chat import Chat
-# from client_view import ClientView
 from sp import *
-from constants import *
 from utils import *
 import re
-from packet import *
 from firewall import *
 
 
 class OTP:
     def __init__(self, client_view):
-        self.client_view: ClientView = client_view
-        self.chat: Chat = None
+        self.client_view = client_view
+        self.chat = None
 
         self.id = None
         self.rcv_port = None
-        # self.send_port = None
 
         self.parent_port = None
         self.parent_id = None
@@ -28,18 +23,17 @@ class OTP:
 
         self.firewall_rules: list[TFirewallRule] = []
 
-    def _receive(self, sock):
-        msg = loads(recv_message(sock))
-        return msg
+    @staticmethod
+    def _receive(sock):
+        return loads(recv_message(sock))
 
-    def _send(self, data, dest_port, return_ans=False):
-        # self.client_sock.bind((0, self.send_port))
+    @staticmethod
+    def _send(data, dest_port, return_ans=False):
         client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_sock.connect((HOST, dest_port))
         send_message(client_sock, dumps(data))
-        if return_ans:
-            msg = self._receive(client_sock)
 
+        msg = OTP._receive(client_sock) if return_ans else None
         client_sock.close()
         if return_ans:
             return msg
@@ -54,7 +48,6 @@ class OTP:
         return True
 
     def _known_check(self, packet: Packet):
-        # return True
         if packet.src_id == self.id and packet.dest_id != -1 and packet.dest_id not in self.known_ids:
             self.client_view.unknown_id(packet.dest_id)
             return False
@@ -62,13 +55,9 @@ class OTP:
 
     def _send_packet(self, packet: Packet):
         if packet.dest_id == self.id:
-            log.error(f'intending to send message to self: {packet}')
-            return
+            return log.error(f'intending to send message to self: {packet}')
 
-        if not self._firewall_check(packet):
-            return
-
-        if not self._known_check(packet):
+        if not (self._firewall_check(packet) and self._known_check(packet)):
             return
 
         if packet.dest_id == -1:
@@ -77,13 +66,13 @@ class OTP:
                 if packet.src_id in subtree:
                     from_me_or_children = True
                 else:
-                    self._send(packet, child_port)
+                    OTP._send(packet, child_port)
             if self.parent_id != -1 and from_me_or_children:
-                self._send(packet, self.parent_port)
+                OTP._send(packet, self.parent_port)
         else:
             for child_port, subtree in self.children:
                 if packet.dest_id in subtree:
-                    self._send(packet, child_port)
+                    OTP._send(packet, child_port)
                     break
             else:
                 if self.parent_id == -1:
@@ -91,14 +80,16 @@ class OTP:
                         .set_type(PacketType.DestinationNotFoundMessage) \
                         .set_src_id(self.id).set_dest_id(packet.src_id) \
                         .set_data(packet.dest_id)
-                    # .set_data(f"DESTINATION {packet.dest_id} NOT FOUND")
+
                     self._send_packet(not_found_packet)
                 else:
-                    self._send(packet, self.parent_port)
+                    OTP._send(packet, self.parent_port)
 
-    def _handle_incoming_packet(self, client_sock):
+    def _handle_incoming_packet(self, client_sock: socket.socket):
         packet = self._receive(client_sock)
-        if packet.dest_id == -1:
+        if not self._firewall_check(packet):
+            return
+        if packet.dest_id == -1:  # TODO should we display log for broadcast, too?
             self._send_packet(packet)
             packet.set_dest_id(self.id)
         if packet.dest_id != self.id:
@@ -115,7 +106,7 @@ class OTP:
             if packet.dest_id == self.id:
                 rr_packet = Packet().set_type(PacketType.RoutingResponse) \
                     .set_src_id(self.id).set_dest_id(packet.src_id) \
-                    .set_data(f"{self.id}")
+                    .set_data(f'{self.id}')
                 self._send_packet(rr_packet)
             else:
                 self._send_packet(packet)
@@ -125,18 +116,17 @@ class OTP:
                 if packet.src_id in ch_tree:
                     from_children = True
                     break
-            if from_children:
-                packet.data = f"{self.id}->" + packet.data
-            else:
-                packet.data = f"{self.id}<-" + packet.data
 
+            packet.data = str(self.id) + ('->' if from_children else '<-') + packet.data
             if packet.dest_id == self.id:
                 self.client_view.route_delivery(packet.data)
             else:
                 self._send_packet(packet)
+
         elif packet.type == PacketType.ParentAdvertise:
             if packet.dest_id != self.id:
                 log.error('parent advertise is not mine')
+                return
             new_id = packet.data
             self.known_ids.add(new_id)
             for child_port, subtree in self.children:
@@ -172,6 +162,7 @@ class OTP:
                 log.warning('connection request dest not my id')
         else:
             log.error('packet type not recognized')
+        client_sock.close()
 
     def _listen_incoming_tcp(self):
         server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -179,15 +170,14 @@ class OTP:
         server_sock.listen()
         while True:
             client_sock, address = server_sock.accept()
-            threading.Thread(target=self._handle_incoming_packet, args=(client_sock, )).start()
+            threading.Thread(target=self._handle_incoming_packet, args=(client_sock,)).start()
 
     def connect_to_network(self, id, rcv_port):
         self.id = id
         self.rcv_port = rcv_port
-        # self.send_port = rcv_port + 1
 
-        msg = f"{self.id} REQUESTS FOR CONNECTING TO NETWORK ON PORT {self.rcv_port}"
-        msg = self._send(msg, MANAGER_PORT, True)
+        msg = f'{self.id} REQUESTS FOR CONNECTING TO NETWORK ON PORT {self.rcv_port}'
+        msg = OTP._send(msg, MANAGER_PORT, True)
         m = re.match(r'CONNECT TO (-?\d+) WITH PORT (-?\d+)', msg)
         self.parent_id, self.parent_port = int(m.group(1)), int(m.group(2))
         if self.parent_id != -1:
@@ -217,4 +207,4 @@ class OTP:
         self._send_packet(msg_packet)
 
     def add_filter(self, src_id: str, dest_id: str, type: PacketType, action: FirewallAction, dir: FirewallDirection):
-        self.firewall_rules.append(TFirewallRule(src_id, dest_id, type, action, dir))
+        self.firewall_rules.append(TFirewallRule(self.id, src_id, dest_id, type, action, dir))

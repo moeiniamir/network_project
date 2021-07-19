@@ -8,17 +8,17 @@ def send_message(sock, data):
 
 
 def recv_message(sock):
-    lengthbuf = recvall(sock, 4)
-    length, = struct.unpack('!I', lengthbuf)
+    buf_len = recvall(sock, 4)
+    length, = struct.unpack('!I', buf_len)
     return recvall(sock, length)
 
 
 def recvall(sock, count):
     buf = b''
     while count:
-        newbuf = sock.recv(count)
-        if not newbuf:
+        new_buf = sock.recv(count)
+        if not new_buf:
             raise Exception('not enough data on socket')
-        buf += newbuf
-        count -= len(newbuf)
+        buf += new_buf
+        count -= len(new_buf)
     return buf

@@ -1,4 +1,3 @@
-# from client_view import ClientView
 from otp import OTP
 from enum import Enum
 import re
@@ -13,9 +12,10 @@ class ChatState(Enum):
     NO_CHAT = 1
     INVITATION_PENDING = 2
 
+
 class Chat:
     def __init__(self, client_view):
-        self.client_view: ClientView = client_view
+        self.client_view = client_view
         self.otp: OTP = None
         self.chat_state: ChatState = ChatState.NO_CHAT
         self.invited: list[int] = []
@@ -85,7 +85,7 @@ class Chat:
 
         m = re.fullmatch(patt5, msg)
         if m:
-            msg = f"Hezaro Sisad Ta Salam"
+            msg = f'Hezaro Sisad Ta Salam'
             self.otp.send_msg(msg, src_id)
             if self.chat_state == ChatState.NO_CHAT:
                 self.client_view.display_salam(False)
@@ -93,10 +93,9 @@ class Chat:
 
         log.warning(f'unknown message packet arrived: {msg}')
 
-
     # called from ClientView
     def send_salam(self, dest_id):
-        msg = "Salam Salam Sad Ta Salam"
+        msg = 'Salam Salam Sad Ta Salam'
         self.otp.send_msg(msg, dest_id)
 
     def start_chat(self, chat_name, others: list[int]):
@@ -106,7 +105,7 @@ class Chat:
 
         for id in others:
             if id not in self.otp.known_ids:
-                log.warning(f"{id} is unknown. omitted from chat.")
+                log.warning(f'{id} is unknown. omitted from chat.')
         others = [id for id in others if id in self.otp.known_ids]
 
         self.chat_state = ChatState.IN_CHAT
@@ -132,7 +131,7 @@ class Chat:
         self.chat_state = ChatState.NO_CHAT
 
     def exit_chat(self):
-        msg = f"CHAT {self.chat_id}:\nEXIT CHAT {self.otp.id}"
+        msg = f'CHAT {self.chat_id}:\nEXIT CHAT {self.otp.id}'
         for id in self.invited:
             self.otp.send_msg(msg, id)
 
@@ -142,7 +141,7 @@ class Chat:
         self.chat_state = ChatState.NO_CHAT
 
     def send_message(self, msg: str):
-        msg = f"CHAT {self.chat_id}:\n{msg}"
+        msg = f'CHAT {self.chat_id}:\n{msg}'
         for id in self.invited:
             self.otp.send_msg(msg, id)
 

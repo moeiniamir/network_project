@@ -17,21 +17,21 @@ class ClientView:
         self.chat.otp = self.otp
 
     def parse_user_input(self):
-        patt0 = r"CONNECT AS (\d+) ON PORT (\d+)"
-        patt1 = r"SHOW KNOWN CLIENTS"
-        patt2 = r"ROUTE (-?\d+)"
-        patt3 = r"Advertise (-?\d+)"
-        patt4 = r"Salam (-?\d+)"
-        patt5 = r"START CHAT (\w+): ((?:\d+,?)+)"
-        patt6 = r"Y"
-        patt7 = r"N"
-        patt8 = r"EXIT CHAT"
-        patt9 = r"FILTER (\w+) (\*|\d+) (\*|\d+) (\d+) (\w+)"
-        patt10 = r"FW CHAT (\w+)"
-
+        patt0 = r'CONNECT AS (\d+) ON PORT (\d+)'
+        patt1 = r'SHOW KNOWN CLIENTS'
+        patt2 = r'ROUTE (-?\d+)'
+        patt3 = r'ADVERTISE (-?\d+)'
+        patt4 = r'SALAM (-?\d+)'
+        patt5 = r'START CHAT (\w+): ((?:\d+,?)+)'
+        patt6 = r'Y'
+        patt7 = r'N'  # Useless
+        patt8 = r'EXIT CHAT'
+        patt9 = r'FILTER (\w+) (\*|\d+) (\*|\d+) (\d+) (\w+)'
+        patt10 = r'FW CHAT (\w+)'
 
         while True:
-            inp = input('>> ')
+            orig_inp = input()
+            inp = orig_inp.upper()
 
             if self.chat.chat_state == ChatState.IN_CHAT:
                 m = re.fullmatch(patt8, inp)
@@ -39,19 +39,17 @@ class ClientView:
                     self.chat.exit_chat()
                     continue
 
-                self.chat.send_message(inp)
+                self.chat.send_message(orig_inp)
+                continue
 
             elif self.chat.chat_state == ChatState.INVITATION_PENDING:
                 m = re.fullmatch(patt6, inp)
                 if m:
                     chat_name = input('Choose a name for yourself: ')
                     self.chat.send_name(chat_name)
-                    continue
-
-                m = re.fullmatch(patt7, inp)
-                if m:
+                else:  # Anything but 'Y' declines the invitation
                     self.chat.refuse_chat()
-                    continue
+                continue
             else:
                 m = re.fullmatch(patt0, inp)
                 if m:
@@ -108,8 +106,7 @@ class ClientView:
 
             log.warning(f'invalid input: {inp}')
 
-
-    #### called from OTP
+    # called from OTP
     def display_log(self, packet: Packet):
         if self.chat.chat_state == ChatState.NO_CHAT:
             s = f"{packet.type.name} Packet from {packet.src_id} to {packet.dest_id}"
@@ -129,7 +126,7 @@ class ClientView:
             s = f"Unknown destination {dest_id}"
             safe_print(s)
 
-    #### called from Chat
+    # called from Chat
     def display_salam(self, is_ans):
         if is_ans:
             safe_print("Hezaro Sisad Ta Salam")
@@ -145,7 +142,7 @@ class ClientView:
         safe_print(s)
 
     def so_joined(self, chat_name, id):
-        s = f"{chat_name}({id}) was  joind to the chat."
+        s = f"{chat_name}({id}) was joind to the chat."
         safe_print(s)
 
     def so_left(self, chat_name, id):
@@ -158,19 +155,21 @@ class ClientView:
 
 
 client = ClientView()
+id = 1
 
 try:
-    f = open('temp','rb')
+    f = open('temp', 'rb')
     id = pickle.load(f)
     f.close()
-    client.otp.connect_to_network(id,3000+id)
+    client.otp.connect_to_network(id, 3000 + id)
     f = open('temp', 'wb')
-    pickle.dump(id+1, f)
+    pickle.dump(id + 1, f)
     f.close()
-except:
-    f = open('temp','wb')
+except FileNotFoundError:
+    f = open('temp', 'wb')
     client.otp.connect_to_network(1, 3001)
-    pickle.dump(2,f)
+    pickle.dump(2, f)
     f.close()
 
+print(f'Welcome. Try id={id}, port={id + 3000}')
 client.parse_user_input()

@@ -35,5 +35,4 @@ class Packet:
         return self
 
     def __str__(self):
-        s = f"dest={self.dest_id} src={self.src_id} type={self.type.name} data=\n{self.data}"
-        return s
+        return f'dest={self.dest_id} src={self.src_id} type={self.type.name} data=\n{self.data}'
